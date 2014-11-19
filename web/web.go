@@ -2,7 +2,6 @@ package web
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -12,21 +11,16 @@ import (
 	"sync"
 )
 
-type GameEntity struct {
-	ID    int    `json: id`
-	Board string `json: string`
-}
-
 // Create a new GameEntity from the context.
 func (ge *GameEntity) FromContext(gc *server.GameContext) {
 	ge.ID = gc.ID
-	ge.Board = gc.GetBoard().Board.ToString()
+	ge.Board = (<-gc.GetBoard()).Board.ToString()
 }
 
 // Create a new HTTPServer.
 type HTTPServerContext struct {
-	sc      *server.ServerContext
-	running *sync.WaitGroup
+	ServerContext *server.ServerContext
+	running       *sync.WaitGroup
 }
 
 func WrapLogger(handler http.Handler) http.HandlerFunc {
@@ -37,11 +31,12 @@ func WrapLogger(handler http.Handler) http.HandlerFunc {
 }
 
 func (ctx *HTTPServerContext) Start() {
-	fmt.Println("Starting...")
+	log.Println("Starting...")
 	mux := http.NewServeMux()
 	mux.HandleFunc("/game/", ctx.GetGameHandler)
 	mux.HandleFunc("/game/new", ctx.NewGameHandler)
 	mux.HandleFunc("/game/play", ctx.PlayMoveHandler)
+	mux.HandleFunc("/game/websocket", ctx.WebsocketHandler)
 	fs := http.FileServer(http.Dir("static"))
 	mux.Handle("/static/", http.StripPrefix("/static/", fs))
 	ctx.ServerContext.Start()
@@ -119,7 +114,7 @@ func (ctx *HTTPServerContext) PlayMoveHandler(rw http.ResponseWriter, r *http.Re
 		return
 	}
 	// can't play directly!
-	response := gc.Play(player, row, col)
+	response := <-gc.Play(player, row, col)
 	if response.Success {
 		rw.Write([]byte("success"))
 	} else {
@@ -141,8 +136,8 @@ func Start() {
 	// TODO - make them into variables.
 	var running sync.WaitGroup
 	ctx := HTTPServerContext{
-		sc:      server.NewServerContext(&running),
-		running: &running,
+		ServerContext: server.NewServerContext(&running),
+		running:       &running,
 	}
 	ctx.Start()
 	c := make(chan os.Signal, 1)
