@@ -29,8 +29,9 @@ type HTTPServerContext struct {
 	running *sync.WaitGroup
 }
 
-func WrapLogger(handler http.HandlerFunc) http.HandlerFunc {
+func WrapLogger(handler http.Handler) http.HandlerFunc {
 	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		log.Printf("%s %s %s", r.RemoteAddr, r.Method, r.URL)
 		handler.ServeHTTP(rw, r)
 	})
 }
@@ -46,7 +47,7 @@ func (ctx *HTTPServerContext) Start() {
 	ctx.sc.Start()
 	s := http.Server{
 		Addr:    ":8080",
-		Handler: mux,
+		Handler: WrapLogger(mux),
 	}
 	go func() {
 		log.Fatal(s.ListenAndServe())
