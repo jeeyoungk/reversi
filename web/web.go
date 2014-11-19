@@ -44,7 +44,7 @@ func (ctx *HTTPServerContext) Start() {
 	mux.HandleFunc("/game/play", ctx.PlayMoveHandler)
 	fs := http.FileServer(http.Dir("static"))
 	mux.Handle("/static/", http.StripPrefix("/static/", fs))
-	ctx.sc.Start()
+	ctx.ServerContext.Start()
 	s := http.Server{
 		Addr:    ":8080",
 		Handler: WrapLogger(mux),
@@ -56,7 +56,7 @@ func (ctx *HTTPServerContext) Start() {
 
 func (ctx *HTTPServerContext) Stop() {
 	ctx.running.Done()
-	ctx.sc.Stop()
+	ctx.ServerContext.Stop()
 }
 
 func (ctx *HTTPServerContext) NewGameHandler(rw http.ResponseWriter, r *http.Request) {
@@ -64,7 +64,7 @@ func (ctx *HTTPServerContext) NewGameHandler(rw http.ResponseWriter, r *http.Req
 		rw.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	gc := ctx.sc.NewGameContext()
+	gc := ctx.ServerContext.NewGameContext()
 	response := GameEntity{}
 	response.FromContext(gc)
 	bytes, _ := json.Marshal(response)
@@ -81,7 +81,7 @@ func (ctx *HTTPServerContext) GetGameHandler(rw http.ResponseWriter, r *http.Req
 	if err != nil {
 		return
 	}
-	gc, ok := ctx.sc.GetGameContext(id)
+	gc, ok := ctx.ServerContext.GetGameContext(id)
 	if !ok {
 		rw.WriteHeader(http.StatusBadRequest)
 		return
@@ -113,7 +113,7 @@ func (ctx *HTTPServerContext) PlayMoveHandler(rw http.ResponseWriter, r *http.Re
 	if err != nil {
 		return
 	}
-	gc, ok := ctx.sc.GetGameContext(id)
+	gc, ok := ctx.ServerContext.GetGameContext(id)
 	if !ok {
 		rw.WriteHeader(http.StatusBadRequest)
 		return
