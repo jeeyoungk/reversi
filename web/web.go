@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"server"
+	"reversi/server"
 	"strconv"
 	"sync"
 )
@@ -17,14 +17,22 @@ type GameEntity struct {
 	Board string `json: string`
 }
 
+// Create a new GameEntity from the context.
 func (ge *GameEntity) FromContext(gc *server.GameContext) {
 	ge.ID = gc.ID
 	ge.Board = gc.GetBoard().Board.ToString()
 }
 
+// Create a new HTTPServer.
 type HTTPServerContext struct {
 	sc      *server.ServerContext
 	running *sync.WaitGroup
+}
+
+func WrapLogger(handler http.HandlerFunc) http.HandlerFunc {
+	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		handler.ServeHTTP(rw, r)
+	})
 }
 
 func (ctx *HTTPServerContext) Start() {
@@ -33,6 +41,8 @@ func (ctx *HTTPServerContext) Start() {
 	mux.HandleFunc("/game/", ctx.GetGameHandler)
 	mux.HandleFunc("/game/new", ctx.NewGameHandler)
 	mux.HandleFunc("/game/play", ctx.PlayMoveHandler)
+	fs := http.FileServer(http.Dir("static"))
+	mux.Handle("/static/", http.StripPrefix("/static/", fs))
 	ctx.sc.Start()
 	s := http.Server{
 		Addr:    ":8080",

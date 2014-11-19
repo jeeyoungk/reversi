@@ -1,8 +1,8 @@
 package server
 
 import (
-	"board"
 	"fmt"
+	"reversi/board"
 	"sync"
 )
 
