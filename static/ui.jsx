@@ -38,16 +38,6 @@ MenuBar = React.createClass({
   }
 })
 
-var socket = new WebSocket('ws://localhost:8080/game/websocket');
-socket.onopen = function() {
-  socket.send(JSON.stringify({
-    hello: "world"
-  }));
-};
-socket.onmessage = function(message) {
-  console.log(message);
-};
-
 React.render(
   <MenuBar/>,
   document.getElementById('content')

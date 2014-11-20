@@ -126,59 +126,58 @@ func (gc *GameContext) Start() {
 	go gc.loop()
 }
 
-
 func (gc *GameContext) loop() {
-  running := true
-  for running {
-    // in this loop, you have the full access.
-    modified := false
-    select {
-    case query := <-gc.queryRequest:
-      query.response <- GameResponse{Success: true, Board: *gc.board}
-    case move := <-gc.moveRequest:
-      played := gc.board.Play(move.player, move.row, move.col)
-      move.response <- GameResponse{Success: played, Board: *gc.board}
-      modified = played
-    case wait := <-gc.waitRequest:
-      if wait.version <= gc.board.Version() {
-        // version is low enough - return the response now.
-        wait.response <- GameResponse{Success: true, Board: *gc.board}
-      } else {
-        // queue up.
-        gc.queuedWaitRequests = append(gc.queuedWaitRequests, wait)
-      }
-    case <-gc.stopRequest:
-      // TODO - when this gets triggered, all the existing messages
-      // will not be processed.
-      running = false
-    }
-    if modified {
-      gc.triggerWatch(gc.board.Version())
-    }
-  }
+	running := true
+	for running {
+		// in this loop, you have the full access.
+		modified := false
+		select {
+		case query := <-gc.queryRequest:
+			query.response <- GameResponse{Success: true, Board: *gc.board}
+		case move := <-gc.moveRequest:
+			played := gc.board.Play(move.player, move.row, move.col)
+			move.response <- GameResponse{Success: played, Board: *gc.board}
+			modified = played
+		case wait := <-gc.waitRequest:
+			if wait.version <= gc.board.Version() {
+				// version is low enough - return the response now.
+				wait.response <- GameResponse{Success: true, Board: *gc.board}
+			} else {
+				// queue up.
+				gc.queuedWaitRequests = append(gc.queuedWaitRequests, wait)
+			}
+		case <-gc.stopRequest:
+			// TODO - when this gets triggered, all the existing messages
+			// will not be processed.
+			running = false
+		}
+		if modified {
+			gc.triggerWatch(gc.board.Version())
+		}
+	}
 }
 
 func (gc *GameContext) triggerWatch(curVersion int) {
-  trigger := false
-  // see if we need to trigger.
-  for _, wait := range gc.queuedWaitRequests {
-    if wait.version <= curVersion {
-      trigger = true
-      break
-    }
-  }
-  if trigger {
-    // Actually trigger.
-    newQueued := make([]WaitRequest, len(gc.queuedWaitRequests))
-    for _, wait := range gc.queuedWaitRequests {
-      if wait.version <= curVersion {
-        wait.response <- GameResponse{Success: true, Board: *gc.board}
-      } else {
-        newQueued = append(newQueued, wait)
-      }
-    }
-    gc.queuedWaitRequests = newQueued
-  }
+	trigger := false
+	// see if we need to trigger.
+	for _, wait := range gc.queuedWaitRequests {
+		if wait.version <= curVersion {
+			trigger = true
+			break
+		}
+	}
+	if trigger {
+		// Actually trigger.
+		newQueued := make([]WaitRequest, len(gc.queuedWaitRequests))
+		for _, wait := range gc.queuedWaitRequests {
+			if wait.version <= curVersion {
+				wait.response <- GameResponse{Success: true, Board: *gc.board}
+			} else {
+				newQueued = append(newQueued, wait)
+			}
+		}
+		gc.queuedWaitRequests = newQueued
+	}
 }
 
 func (gc *GameContext) Stop() {
