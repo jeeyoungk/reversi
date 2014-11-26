@@ -1,7 +1,6 @@
 package board
 
 import (
-	"fmt"
 	"strings"
 )
 
@@ -26,7 +25,6 @@ type Event struct {
 
 // Constructor
 func NewBoard() *Board {
-	fmt.Println("NewBoard")
 	b := &Board{
 		turn: Black,
 	}

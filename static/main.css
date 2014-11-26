@@ -1,10 +1,23 @@
 .board {
     position: relative;
+    width: 256px;
+    height: 256px;
 }
 
-.cell {
-    width: 32px;
-    height: 32px;
-    background-color: #eeeeee;
-    position: absolute;
+circle.player-0 {
+    fill: white;
+}
+
+circle.player-0:hover {
+    fill: grey;
+}
+
+circle.player-1 {
+    fill: black;
+}
+
+circle.player-2 {
+    fill: white;
+    stroke: black;
+    stroke-width: 1;
 }

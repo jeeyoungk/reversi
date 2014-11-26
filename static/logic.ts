@@ -1,37 +1,36 @@
 /// <reference path="typings/jquery/jquery.d.ts" />
+module logic {
+    /**
+     * Represents a game board.
+     */
+    export class Board {
+        private data:string;
 
-var WS_CONNECT = 'ws://localhost:8080/game/websocket';
+        constructor(data) {
+            this.data = data;
+        }
 
-class App {
-    mux: Mux;
-    ajax: Ajax;
-    constructor () {
-        this.mux = new Mux(WS_CONNECT)
-        this.ajax = new Ajax();
+        getCell(row:number, col:number) {
+            var cell = this.data.charAt(row * 8 + col);
+            switch (cell) {
+                case "X":
+                    return new Cell(1);
+                case "O":
+                    return new Cell(2);
+                default:
+                    return new Cell(0);
+            }
+        }
+    }
+
+    /**
+     * Represents a cell of game.
+     */
+    class Cell {
+        public player:number;
+
+        constructor(player:number) {
+            this.player = player;
+        }
     }
 }
-/**
- * Websocket multiplexer.
- */
-class Mux {
-    socket: WebSocket
-    constructor (connection: string) {
-        this.socket = new WebSocket(connection);
-        this.socket.addEventListener("onopen", function() {
-            console.log("hello, world")
-        });
-    }
-}
-
-/**
- * Abstraction over the ajax requests.
- */
-class Ajax {
-    newGame() {
-        return $.ajax("/game/new", {
-            type: "POST"
-        })
-    }
-}
-
-var mux = new Mux(WS_CONNECT);

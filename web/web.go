@@ -59,7 +59,7 @@ func (ctx *HTTPServerContext) NewGameHandler(rw http.ResponseWriter, r *http.Req
 		rw.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	gc := ctx.ServerContext.NewGameCoontext()
+	gc := ctx.ServerContext.NewGameContext()
 	response := GameEntity{}
 	response.FromContext(gc)
 	bytes, _ := json.Marshal(response)

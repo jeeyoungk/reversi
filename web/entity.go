@@ -2,6 +2,6 @@
 package web
 
 type GameEntity struct {
-	ID    int    `json: id`
-	Board string `json: string`
+	ID    int    `json:"id"`
+	Board string `json:"board"`
 }
