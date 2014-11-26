@@ -1,5 +1,12 @@
 /// <reference path="typings/jquery/jquery.d.ts" />
 var WS_CONNECT = 'ws://localhost:8080/game/websocket';
+var App = (function () {
+    function App() {
+        this.mux = new Mux(WS_CONNECT);
+        this.ajax = new Ajax();
+    }
+    return App;
+})();
 /**
  * Websocket multiplexer.
  */

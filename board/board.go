@@ -1,6 +1,7 @@
 package board
 
 import (
+	"fmt"
 	"strings"
 )
 
@@ -25,6 +26,7 @@ type Event struct {
 
 // Constructor
 func NewBoard() *Board {
+	fmt.Println("NewBoard")
 	b := &Board{
 		turn: Black,
 	}
@@ -57,10 +59,12 @@ func (b Board) Score(color int) int {
 	return sum
 }
 
+// Returns the turn.
 func (b Board) Turn() int {
 	return b.turn
 }
 
+// Compact representation of the board.
 func (b Board) ToString() string {
 	rows := make([]string, N, N)
 	row := make([]string, N, N)
@@ -77,7 +81,7 @@ func (b Board) ToString() string {
 		}
 		rows[rowIdx] = strings.Join(row, "")
 	}
-	return strings.Join(rows, "\n")
+	return strings.Join(rows, "")
 }
 
 // returns true if the playing has succeeded.

@@ -1,0 +1,10 @@
+.board {
+    position: relative;
+}
+
+.cell {
+    width: 32px;
+    height: 32px;
+    background-color: #eeeeee;
+    position: absolute;
+}

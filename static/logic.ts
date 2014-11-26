@@ -2,6 +2,14 @@
 
 var WS_CONNECT = 'ws://localhost:8080/game/websocket';
 
+class App {
+    mux: Mux;
+    ajax: Ajax;
+    constructor () {
+        this.mux = new Mux(WS_CONNECT)
+        this.ajax = new Ajax();
+    }
+}
 /**
  * Websocket multiplexer.
  */
