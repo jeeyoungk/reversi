@@ -1,7 +1,7 @@
 package server
 
 import (
-	"reversi/board"
+	"github.com/jeeyoungk/reversi/board"
 )
 
 type MoveRequest struct {

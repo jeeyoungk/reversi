@@ -11,7 +11,7 @@ import (
 	"sync"
 
 	"github.com/gorilla/schema"
-	"reversi/server"
+	"github.com/jeeyoungk/reversi/server"
 )
 
 var decoder = schema.NewDecoder()

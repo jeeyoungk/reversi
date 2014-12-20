@@ -9,7 +9,7 @@ package server
 
 import (
 	"fmt"
-	"reversi/board"
+	"github.com/jeeyoungk/reversi/board"
 	"sync"
 )
 

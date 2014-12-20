@@ -3,7 +3,7 @@
 package web
 
 import (
-	"reversi/server"
+	"github.com/jeeyoungk/reversi/server"
 )
 
 type GameEntity struct {
