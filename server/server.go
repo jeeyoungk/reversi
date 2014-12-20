@@ -17,21 +17,32 @@ type Service interface {
 }
 
 type ServerContext struct {
-	gamesMutex  sync.RWMutex
-	games       map[int]*GameContext // accessed by the mutex.
-	gameCounter int                  // accessed by the mutex.
-	stopRequest chan struct{}
-	running     *sync.WaitGroup
+	// locks
+	gamesMutex     sync.RWMutex
+	playersMutex   sync.RWMutex
+	games          map[int]*GameContext // accessed by the mutex.
+	gameCounter    int                  // accessed by the mutex.
+	players        map[int]*PlayerContext
+	playersCounter int
+	stopRequest    chan struct{}
+	running        *sync.WaitGroup
 }
 
 type GameContext struct {
-	ID                 int
-	board              *board.Board
-	moveRequest        chan MoveRequest
-	queryRequest       chan QueryRequest
-	waitRequest        chan WaitRequest
-	stopRequest        chan struct{}
+	ID                 int               // game id
+	board              *board.Board      // game state
+	moveRequest        chan MoveRequest  // queued moves
+	queryRequest       chan QueryRequest // queued queries
+	waitRequest        chan WaitRequest  // queued waits
+	stopRequest        chan struct{}     // queued stops
 	queuedWaitRequests []WaitRequest
+	playerA            PlayerContext // first player name
+	playerB            PlayerContext // second player name
+}
+
+type PlayerContext struct {
+	id   int
+	name string
 }
 
 type MoveRequest struct {
@@ -68,14 +79,21 @@ func NewServerContext(running *sync.WaitGroup) *ServerContext {
 }
 
 func newGameContext(id int) *GameContext {
-	const size = 5
+	const queueSize = 5
 	return &GameContext{
 		ID:           id,
 		board:        board.NewBoard(),
-		queryRequest: make(chan QueryRequest, size),
-		moveRequest:  make(chan MoveRequest, size),
-		waitRequest:  make(chan WaitRequest, size),
+		queryRequest: make(chan QueryRequest, queueSize),
+		moveRequest:  make(chan MoveRequest, queueSize),
+		waitRequest:  make(chan WaitRequest, queueSize),
 		stopRequest:  make(chan struct{}),
+	}
+}
+
+func newPlayerContext(id int, name string) *PlayerContext {
+	return &PlayerContext{
+		id:   id,
+		name: name,
 	}
 }
 
@@ -87,6 +105,21 @@ func (sc *ServerContext) NewGameContext() *GameContext {
 	gc.Start()
 	sc.games[sc.gameCounter] = gc
 	return gc
+}
+
+func (sc *ServerContext) NewPlayerContext() *PlayerContext {
+	sc.playersMutex.Lock()
+	defer sc.playersMutex.Unlock()
+	sc.playersCounter++
+	name := fmt.Sprintf("player-%d", sc.playersCounter)
+	pc := newPlayerContext(sc.playersCounter, name)
+	return pc
+}
+
+func (sc *ServerContext) GetGameCount() int {
+	sc.gamesMutex.RLock()
+	defer sc.gamesMutex.RUnlock()
+	return len(sc.games)
 }
 
 func (sc *ServerContext) GetGameContext(id int) (*GameContext, bool) {

@@ -1,6 +1,7 @@
-// the size of the board.
-var N = 8;
-var SIZE = 32;
+// author : jeeyoung kim
+// front-end code for the Reversi game.
+var N = 8;     // size of the board.
+var SIZE = 32; // size of each circle.
 
 MenuItem = React.createClass({
     getInitialState: function () {
@@ -11,9 +12,9 @@ MenuItem = React.createClass({
     },
     render: function () {
         var selectedClass = "";
-        var onClick = (function () {
+        var onClick = () => {
             this.props.onSelect(this);
-        }).bind(this);
+        };
         if (this.state.selected) {
             selectedClass = "pure-menu-selected"
         }
@@ -39,22 +40,38 @@ Piece = React.createClass({
 Board = React.createClass({
     getInitialState: function () {
         return {
-            board: new logic.Board("")
+            board: new BoardModel({id: null, board: "", width: 0, height: 0})
         };
     },
     render: function () {
-        console.log("rendering...");
         var result = [];
+        var self = this;
         function bindOnclick(row, col) {
+            var onError = (response) => {
+                console.log('error');
+            };
+            var onSuccess = (response) => {
+                console.log('success');
+            };
             return function() {
+                var board = self.state.board;
+                $.ajax("/game/play", {
+                    data: {
+                        id: board.id,
+                        row: row,
+                        col: col,
+                        player: 1
+                    },
+                    type: "POST"
+                }).then(onSuccess, onError);
                 console.log(row, col, 'clicked');
             }
         }
-        for (var row = 0; row < 8; row++) {
-            for (var col = 0; col < 8; col++) {
+        for (var row = 0; row < this.state.board.width; row++) {
+            for (var col = 0; col < this.state.board.height; col++) {
                 var cell = this.state.board.getCell(row, col);
-                var fill = "player-" + cell.player;
-                result.push(<Piece row={row} col={col} fill={fill} onClick={bindOnclick(row, col)}/>);
+                var fill = "player-" + cell.getPlayer();
+                result.push(<Piece key={row + ":" + col} row={row} col={col} fill={fill} onClick={bindOnclick(row, col)}/>);
             }
         }
         return <svg className="board">{result}</svg>;
@@ -80,7 +97,7 @@ Main = React.createClass({
             }).then(function (objectString) {
                 // render the object.
                 var parsed = JSON.parse(objectString);
-                var board = new logic.Board(parsed.board);
+                var board = new BoardModel(parsed);
                 self.refs.board.setState({board: board});
             });
             onSelect(selectedMenuItem);
@@ -91,7 +108,6 @@ Main = React.createClass({
                 <div className="pure-menu pure-menu-open pure-menu-horizontal">
                     <ul>
                         <MenuItem onSelect={onNewGame} name="New Game"></MenuItem>
-                        <MenuItem onSelect={onSelect} name="Existing Game"></MenuItem>
                     </ul>
                 </div>
                 <Board ref="board"/>
@@ -99,6 +115,39 @@ Main = React.createClass({
         )
     }
 });
+
+class BoardModel {
+    constructor(options) {
+        this.id =     options.id;
+        this.width =  options.width  || 0;
+        this.height = options.height || 0;
+        this.board = [];
+        for (var index = 0; index < options.board.length; index++) {
+            var cell = new CellModel(options.board.charAt(index));
+            this.board.push(cell);
+        }
+    }
+
+    getCell(row, column) {
+        return this.board[row * 8 + column];
+    }
+}
+
+class CellModel {
+    constructor(value) {
+        this.value = value;
+    }
+
+    getPlayer() {
+        if (this.value == "X") {
+            return 1;
+        }
+        if (this.value == "O") {
+            return 2;
+        }
+        return 0;
+    }
+}
 
 React.render(
     <Main/>,
