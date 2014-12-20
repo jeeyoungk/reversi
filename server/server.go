@@ -1,5 +1,9 @@
 /*
- * Wrapper around the game logic to make concurrent access to it more viable.
+ * Wrapper around the game logic.
+ *
+ * Includes code for:
+ * - managing the concurrency.
+ * - managing the player database.
  */
 package server
 
@@ -10,6 +14,8 @@ import (
 )
 
 var empty struct{}
+
+type PlayerID int
 
 type Service interface {
 	Start() // called at most once.
@@ -22,7 +28,7 @@ type ServerContext struct {
 	playersMutex   sync.RWMutex
 	games          map[int]*GameContext // accessed by the mutex.
 	gameCounter    int                  // accessed by the mutex.
-	players        map[int]*PlayerContext
+	players        map[PlayerID]*PlayerContext
 	playersCounter int
 	stopRequest    chan struct{}
 	running        *sync.WaitGroup
@@ -34,45 +40,22 @@ type GameContext struct {
 	moveRequest        chan MoveRequest  // queued moves
 	queryRequest       chan QueryRequest // queued queries
 	waitRequest        chan WaitRequest  // queued waits
-	stopRequest        chan struct{}     // queued stops
+	joinRequest        chan JoinRequest  // queued joins
+	stopRequest        chan struct{} // queued stops
 	queuedWaitRequests []WaitRequest
-	playerA            PlayerContext // first player name
-	playerB            PlayerContext // second player name
+	players            [2]*PlayerContext // first player name
 }
 
 type PlayerContext struct {
-	id   int
-	name string
+	ID   PlayerID
+	Name string
 }
 
-type MoveRequest struct {
-	row      int
-	col      int
-	player   int
-	response chan GameResponse
-}
-
-type QueryRequest struct {
-	response chan GameResponse
-}
-
-// waits for the given version to occur.
-type WaitRequest struct {
-	version  int
-	response chan GameResponse
-}
-
-/**
- * Response after any interaction with the game board.
- */
-type GameResponse struct {
-	Success bool        // true if the request succeeded.
-	Board   board.Board // board state, can be safely shared.
-}
-
+// constructor
 func NewServerContext(running *sync.WaitGroup) *ServerContext {
 	return &ServerContext{
 		games:       make(map[int]*GameContext),
+		players:     make(map[PlayerID]*PlayerContext),
 		stopRequest: make(chan struct{}),
 		running:     running,
 	}
@@ -90,30 +73,32 @@ func newGameContext(id int) *GameContext {
 	}
 }
 
-func newPlayerContext(id int, name string) *PlayerContext {
+func newPlayerContext(id PlayerID, name string) *PlayerContext {
 	return &PlayerContext{
-		id:   id,
-		name: name,
+		ID:   id,
+		Name: name,
 	}
 }
 
-func (sc *ServerContext) NewGameContext() *GameContext {
+func (sc *ServerContext) NewGameContext() GameContext {
 	sc.gamesMutex.Lock()
 	defer sc.gamesMutex.Unlock()
 	sc.gameCounter++
 	gc := newGameContext(sc.gameCounter)
 	gc.Start()
 	sc.games[sc.gameCounter] = gc
-	return gc
+	return *gc
 }
 
-func (sc *ServerContext) NewPlayerContext() *PlayerContext {
+func (sc *ServerContext) NewPlayerContext() PlayerContext {
 	sc.playersMutex.Lock()
 	defer sc.playersMutex.Unlock()
 	sc.playersCounter++
+	pid := PlayerID(sc.playersCounter)
 	name := fmt.Sprintf("player-%d", sc.playersCounter)
-	pc := newPlayerContext(sc.playersCounter, name)
-	return pc
+	pc := newPlayerContext(pid, name)
+	sc.players[pid] = pc
+	return *pc
 }
 
 func (sc *ServerContext) GetGameCount() int {
@@ -122,11 +107,24 @@ func (sc *ServerContext) GetGameCount() int {
 	return len(sc.games)
 }
 
+func (sc *ServerContext) GetPlayerCount() int {
+	sc.playersMutex.RLock()
+	defer sc.playersMutex.RUnlock()
+	return len(sc.players)
+}
+
 func (sc *ServerContext) GetGameContext(id int) (*GameContext, bool) {
 	sc.gamesMutex.RLock()
 	defer sc.gamesMutex.RUnlock()
 	game, ok := sc.games[id]
 	return game, ok
+}
+
+func (sc *ServerContext) GetPlayerContext(id PlayerID) (*PlayerContext, bool) {
+	sc.playersMutex.RLock()
+	defer sc.playersMutex.RUnlock()
+	player, ok := sc.players[id]
+	return player, ok
 }
 
 func (gc *GameContext) GetBoard() chan GameResponse {
@@ -153,6 +151,10 @@ func (gc *GameContext) Play(player int, row int, col int) chan GameResponse {
 	}
 	gc.moveRequest <- req
 	return req.response
+}
+
+func (gc *GameContext) Join(pc PlayerContext) {
+
 }
 
 func (gc *GameContext) Start() {

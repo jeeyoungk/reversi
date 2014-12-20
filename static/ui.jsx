@@ -3,6 +3,10 @@
 var N = 8;     // size of the board.
 var SIZE = 32; // size of each circle.
 
+
+////////////////
+// Components //
+////////////////
 MenuItem = React.createClass({
     getInitialState: function () {
         return {clicked: false}
@@ -46,6 +50,7 @@ Board = React.createClass({
     render: function () {
         var result = [];
         var self = this;
+
         function bindOnclick(row, col) {
             var onError = (response) => {
                 console.log('error');
@@ -53,7 +58,7 @@ Board = React.createClass({
             var onSuccess = (response) => {
                 console.log('success');
             };
-            return function() {
+            return function () {
                 var board = self.state.board;
                 $.ajax("/game/play", {
                     data: {
@@ -67,6 +72,7 @@ Board = React.createClass({
                 console.log(row, col, 'clicked');
             }
         }
+
         for (var row = 0; row < this.state.board.width; row++) {
             for (var col = 0; col < this.state.board.height; col++) {
                 var cell = this.state.board.getCell(row, col);
@@ -93,10 +99,12 @@ Main = React.createClass({
 
         function onNewGame(selectedMenuItem) {
             $.ajax("/game/new", {
-                type: "POST"
-            }).then(function (objectString) {
+                type: "POST",
+                data: {
+                    id: self.props.player.id
+                }
+            }).then(function (parsed) {
                 // render the object.
-                var parsed = JSON.parse(objectString);
                 var board = new BoardModel(parsed);
                 self.refs.board.setState({board: board});
             });
@@ -105,6 +113,12 @@ Main = React.createClass({
 
         return (
             <div>
+                <div>
+                    <h1>Debugging</h1>
+                    <pre>
+                        { JSON.stringify(this.props.player) }.
+                    </pre>
+                </div>
                 <div className="pure-menu pure-menu-open pure-menu-horizontal">
                     <ul>
                         <MenuItem onSelect={onNewGame} name="New Game"></MenuItem>
@@ -116,10 +130,14 @@ Main = React.createClass({
     }
 });
 
+/////////////
+// Classes //
+/////////////
+
 class BoardModel {
     constructor(options) {
-        this.id =     options.id;
-        this.width =  options.width  || 0;
+        this.id = options.id;
+        this.width = options.width || 0;
         this.height = options.height || 0;
         this.board = [];
         for (var index = 0; index < options.board.length; index++) {
@@ -149,7 +167,30 @@ class CellModel {
     }
 }
 
-React.render(
-    <Main/>,
-    document.getElementById('content')
-);
+class PlayerModel {
+    constructor(value) {
+        this.id =   value.id;
+        this.name = value.name;
+    }
+}
+
+var init = () => {
+    var playerPromise = Q.promise((resolve, reject, notify) => {
+            $.ajax("/player/new", {type: "POST"}).then((success) => {
+                resolve(success);
+            }, (failure) => {
+                reject(null);
+            });
+        }
+    );
+
+    playerPromise.then((response) => {
+        var player = new PlayerModel(response);
+        React.render(
+            <Main player={player}/>,
+            document.getElementById('content')
+        );
+    });
+};
+
+init();

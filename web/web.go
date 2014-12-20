@@ -16,14 +16,6 @@ import (
 
 var decoder = schema.NewDecoder()
 
-// Create a new GameEntity from the context.
-func (ge *GameEntity) FromContext(gc *server.GameContext) {
-	ge.ID = gc.ID
-	ge.Board = (<-gc.GetBoard()).Board.ToString()
-	ge.Width = 8
-	ge.Height = 8
-}
-
 // Create a new HTTPServer.
 type HTTPServerContext struct {
 	ServerContext *server.ServerContext
@@ -41,13 +33,10 @@ func (ctx *HTTPServerContext) Start() {
 	port := 8080
 	log.Printf("Starting. Port:%d\n", port)
 	mux := http.NewServeMux()
-	mux.HandleFunc("/game/", ctx.GetGameHandler)
-	// create a new game.
 	mux.HandleFunc("/player/new", ctx.NewPlayerHandler)
+	mux.HandleFunc("/game/", ctx.GetGameHandler)
 	mux.HandleFunc("/game/new", ctx.NewGameHandler)
-	// join a game.
 	mux.HandleFunc("/game/join", ctx.JoinGameHandler)
-	// play a new move.
 	mux.HandleFunc("/game/play", ctx.PlayMoveHandler)
 	mux.HandleFunc("/_admin/state", ctx.GameStateHandler)
 	mux.HandleFunc("/websocket", ctx.WebsocketHandler)
@@ -70,10 +59,12 @@ func (ctx *HTTPServerContext) Stop() {
 
 func (ctx *HTTPServerContext) GameStateHandler(rw http.ResponseWriter, r *http.Request) {
 	type Response struct {
-		Games int
+		Games   int
+		Players int
 	}
 	response := Response{
-		Games: ctx.ServerContext.GetGameCount(),
+		Games:   ctx.ServerContext.GetGameCount(),
+		Players: ctx.ServerContext.GetPlayerCount(),
 	}
 	bytes, _ := json.Marshal(response)
 	rw.Write(bytes)
@@ -86,20 +77,38 @@ func (ctx *HTTPServerContext) NewPlayerHandler(rw http.ResponseWriter, r *http.R
 	}
 	pc := ctx.ServerContext.NewPlayerContext()
 	response := PlayerEntity{}
-	bytes, _ := json.Marshal(response)
-	rw.Write(bytes)
-
+	response.FromContext(pc)
+	writeJson(rw, response)
 }
+
 func (ctx *HTTPServerContext) NewGameHandler(rw http.ResponseWriter, r *http.Request) {
+	type RequestForm struct {
+		ID int `schema:id`
+	}
 	if r.Method != "POST" {
 		rw.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	gc := ctx.ServerContext.NewGameContext()
-	response := GameEntity{}
-	response.FromContext(gc)
-	bytes, _ := json.Marshal(response)
-	rw.Write(bytes)
+	if err := r.ParseForm(); err != nil {
+		writeError(rw, http.StatusMethodNotAllowed, err, "Error while parsing form.")
+		return
+	}
+	reqForm := &RequestForm{}
+	if err := decoder.Decode(reqForm, r.PostForm); err != nil {
+		fmt.Println(r.PostForm)
+		writeError(rw, http.StatusBadRequest, err, "Error parsing form.")
+		return
+	}
+
+	if pc, ok := ctx.ServerContext.GetPlayerContext(server.PlayerID(reqForm.ID)); !ok {
+		writeError(rw, http.StatusBadRequest, nil, "No such player")
+	} else {
+		gc := ctx.ServerContext.NewGameContext()
+		gc.Join(*pc)
+		response := GameEntity{}
+		response.FromContext(gc)
+		writeJson(rw, response)
+	}
 }
 
 func (ctx *HTTPServerContext) JoinGameHandler(rw http.ResponseWriter, r *http.Request) {
@@ -142,9 +151,8 @@ func (ctx *HTTPServerContext) GetGameHandler(rw http.ResponseWriter, r *http.Req
 		return
 	}
 	response := GameEntity{}
-	response.FromContext(gc)
-	bytes, _ := json.Marshal(response)
-	rw.Write(bytes)
+	response.FromContext(*gc)
+	writeJson(rw, response)
 }
 
 func (ctx *HTTPServerContext) PlayMoveHandler(rw http.ResponseWriter, r *http.Request) {
@@ -200,6 +208,15 @@ func Start() {
 	running.Wait()
 }
 
+func writeJson(rw http.ResponseWriter, response interface{}) {
+	if bytes, err := json.Marshal(response); err != nil {
+		writeError(rw, http.StatusInternalServerError, err, "invalid json.")
+	} else {
+		rw.Header().Add("Content-Type", "application/json")
+		rw.Write(bytes)
+	}
+}
+
 func writeError(rw http.ResponseWriter, status int, err error, message string) {
 	type ErrorResponse struct {
 		Error   string `json:"debug"`
@@ -214,6 +231,7 @@ func writeError(rw http.ResponseWriter, status int, err error, message string) {
 		Error:   errorString,
 		Message: message,
 	})
+	rw.Header().Add("Content-Type", "application/json")
 	rw.Write(bytes)
 }
 

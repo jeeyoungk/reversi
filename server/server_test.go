@@ -13,7 +13,7 @@ func newServerContext() *ServerContext {
 	return sc
 }
 
-func Test_newgame(t *testing.T) {
+func Test_NewGame(t *testing.T) {
 	sc := newServerContext()
 	defer sc.Stop()
 
